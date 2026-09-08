@@ -1,0 +1,78 @@
+coefficients:
+  c_d_fuselage_x: 0.14141712955203312
+  c_d_fuselage_y: 0.12088614641337228
+  c_d_fuselage_z: -2.7885528048431403e-12
+  vertical_rot_drag_lin: 0.08385442189413145
+  vertical_rot_thrust_lin: -0.06210101311564732
+  vertical_rot_thrust_quad: 12.652658814290469
+metrics:
+  R2: 0.955710408037983
+  RMSE: 1.738755266189871
+model:
+  vertical_:
+  - dataframe_name: u0
+    description: front right rotor
+    position:
+    - 0.175
+    - 0.175
+    - -0.06
+    rotor_0: null
+    rotor_axis:
+    - 0
+    - 0
+    - -1
+    rotor_type: RotorModel
+    turning_direction: -1
+  - dataframe_name: u1
+    description: back left rotor
+    position:
+    - -0.175
+    - -0.175
+    - -0.06
+    rotor_1: null
+    rotor_axis:
+    - 0
+    - 0
+    - -1
+    rotor_type: RotorModel
+    turning_direction: -1
+  - dataframe_name: u2
+    description: front left rotor
+    position:
+    - 0.175
+    - -0.175
+    - -0.06
+    rotor_2: null
+    rotor_axis:
+    - 0
+    - 0
+    - -1
+    rotor_type: RotorModel
+    turning_direction: 1
+  - dataframe_name: u3
+    description: back right rotor
+    position:
+    - -0.175
+    - 0.175
+    - -0.06
+    rotor_3: null
+    rotor_axis:
+    - 0
+    - 0
+    - -1
+    rotor_type: RotorModel
+    turning_direction: 1
+number of samples: 17274
+Cramer:
+  c_d_fuselage_x: 0.024231479424048036
+  c_d_fuselage_y: 0.02320750081180666
+  c_d_fuselage_z: 0.050539383360713515
+  vertical_rot_drag_lin: 0.022084407795183447
+  vertical_rot_thrust_lin: 0.02503485512291006
+  vertical_rot_thrust_quad: 0.03066609570050248
+FIM:
+  lin:
+    det: 1.5245123768777145e+25
+    inv_cond: 3.9320618627190175e-07
+    min_eig: 0.49635694604857716
+    trace: 107.16971337075746
