@@ -1,0 +1,25 @@
+# Working dependency set for Ubuntu 24.04 / Python 3.12 (verified 2026-08-10).
+#
+# Deviations from Tools/parametric_model/requirements.txt:
+#   - numpy pinned <2: dataframe_tools.py:149 does int() on a size-1 array,
+#     which NumPy 2.0 removed. scipy/cvxpy/sklearn/matplotlib are pinned to
+#     their last numpy-1.x-compatible releases to keep the stack coherent.
+#   - argparse dropped: the PyPI backport shadows stdlib argparse on py3.12.
+#   - pytest unpinned: the upstream ==6.2.3 pin does not run on py3.12.
+#   - vpselector omitted: only needed for --data_selection interactive
+#     (pulls PyQt5). Add it if you want the visual segment picker.
+#
+# Install:  python3 -m venv venv && ./venv/bin/pip install -r requirements-local.txt
+
+numpy==1.26.4
+pandas==2.3.3
+scipy==1.13.1
+cvxpy==1.6.7
+scikit-learn==1.5.2
+matplotlib==3.9.4
+h5py==3.16.0
+pyulog==1.2.4
+PyYAML==6.0.3
+seaborn==0.13.2
+progress==1.5
+pytest==9.1.1
