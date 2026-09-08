@@ -52,6 +52,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import block_diag
 import src.optimizers as optimizers
 import numpy as np
+from scipy import signal
 import yaml
 import time
 import warnings
@@ -152,7 +153,91 @@ class DynamicsModel:
                     except:
                         KeyError
 
+        X, y = self.prefilter_regression(X, y)
+
         return X, y, coef_list
+
+    def prefilter_regression(self, X, y):
+        """Band-limit both sides of the regression to a common, coherent band.
+
+        This is the classical system-identification prefilter. Because it is a
+        linear operator applied IDENTICALLY to every column of X and to y, it
+        leaves the underlying relationship untouched -- it only reweights which
+        frequencies the least-squares fit is allowed to listen to.
+
+        It has to happen HERE, on assembled features, not on the raw dataframe
+        columns. The rotor features are nonlinear in the actuator input (thrust
+        goes as u^2), and a band-pass makes u zero-mean, so squaring a filtered
+        u produces something unrelated to a filtered u^2. Filter the feature.
+
+        Why band-limit at all: the fit is only valid where command and response
+        are coherent. Below that band a static CG-trim differential is a large
+        constant in the lever regressor with no term in the model able to
+        explain the steady moment it produces. Above it, past the motor
+        bandwidth, the rate controller's D-term makes the command a function of
+        gyro noise rather than its cause, so the true correlation there is
+        NEGATIVE. Full-band least squares averages the honest middle against
+        both, and lands near zero.
+
+        Blocks are filtered independently: X and y are laid out as contiguous
+        n_samples-long time series, one per (measurement, axis) pair.
+        """
+        cfg = self.config_dict.get("regression_prefilter", None)
+        if cfg is None:
+            return X, y
+
+        fs = self.config_dict["resample_freq"]
+        nyquist = 0.5 * fs
+        lo = cfg.get("highpass_cutoff_hz", None)
+        hi = cfg.get("lowpass_cutoff_hz", None)
+        order = cfg.get("order", 4)
+
+        for name, f in (("highpass_cutoff_hz", lo), ("lowpass_cutoff_hz", hi)):
+            assert f is None or 0 < f < nyquist, (
+                "%s (%s) must be between 0 and the Nyquist frequency (%s) "
+                "implied by resample_freq %s" % (name, f, nyquist, fs)
+            )
+        assert lo is None or hi is None or lo < hi, (
+            "highpass_cutoff_hz (%s) must be below lowpass_cutoff_hz (%s)"
+            % (lo, hi)
+        )
+        if lo is None and hi is None:
+            return X, y
+
+        # Second-order sections, not transfer-function coefficients: a narrow
+        # band-pass at a low normalized frequency is badly conditioned in (b, a)
+        # form at anything past order 2.
+        if lo is not None and hi is not None:
+            sos = signal.butter(
+                order, [lo / nyquist, hi / nyquist], btype="band", output="sos"
+            )
+        elif hi is not None:
+            sos = signal.butter(order, hi / nyquist, output="sos")
+        else:
+            sos = signal.butter(order, lo / nyquist, btype="high", output="sos")
+
+        n = self.n_samples
+        if n <= 12 * order:
+            print(
+                "Warning: %d samples per block is too short to prefilter; "
+                "skipping." % n
+            )
+            return X, y
+
+        print(
+            "Prefiltering regression: %s-%s Hz, order %d, %d blocks of %d samples"
+            % (lo, hi, order, X.shape[0] // n, n)
+        )
+        # sosfiltfilt is zero-phase, so it introduces no lag of its own -- which
+        # matters because an actuator delay has already been aligned out by hand.
+        for start in range(0, X.shape[0], n):
+            X[start : start + n, :] = signal.sosfiltfilt(
+                sos, X[start : start + n, :], axis=0
+            )
+        for start in range(0, y.shape[0], n):
+            y[start : start + n] = signal.sosfiltfilt(sos, y[start : start + n])
+
+        return X, y
 
     def get_topic_list_from_topic_type(self, topic_type):
         topic_type_name_dict = self.req_topics_dict[topic_type]

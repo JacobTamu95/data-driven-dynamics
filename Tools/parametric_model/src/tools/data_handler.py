@@ -44,6 +44,7 @@ import math
 import time
 import yaml
 import numpy as np
+from scipy import signal
 import matplotlib.pyplot as plt
 import os
 from src.models.model_config import ModelConfig
@@ -263,40 +264,175 @@ class DataHandler(object):
             print("could not select flight time due to missing actuator topic")
             exit(1)
 
+        # Conditioning (delay alignment, matched filtering, differentiation) is
+        # applied PER SEGMENT and before the concat. Doing it after, as the code
+        # used to, runs the filter and np.gradient straight across the join
+        # between two flight segments that may be minutes apart in wall time,
+        # fabricating an enormous acceleration at every boundary.
         if isinstance(fts, list):
-            resampled_df = []
-            for ft in fts:
-                new_resampled_df = resample_dataframe_list(
-                    df_list, ft, self.resample_freq
-                )
-                resampled_df.append(new_resampled_df)
-            resampled_df = pd.concat(resampled_df, ignore_index=True)
+            resampled_df = pd.concat(
+                [
+                    self.condition_segment(
+                        resample_dataframe_list(df_list, ft, self.resample_freq)
+                    )
+                    for ft in fts
+                ],
+                ignore_index=True,
+            )
         else:
-            resampled_df = resample_dataframe_list(df_list, fts, self.resample_freq)
-
-        if self.estimate_angular_acceleration:
-            ang_vel_mat = resampled_df[
-                ["ang_vel_x", "ang_vel_y", "ang_vel_z"]
-            ].to_numpy()
-            for i in range(3):
-                ang_vel_mat[:, i] = (
-                    np.convolve(ang_vel_mat[:, i], np.ones(33), mode="same") / 33
-                )
-
-            # Alternate forward differentiation version
-            # ang_vel_mat_1 = np.roll(ang_vel_mat, -1, axis=0)
-            # diff_angular_acc_mat = (
-            #     ang_vel_mat_1 - ang_vel_mat) * self.resample_freq
-            # resampled_df[["ang_acc_b_x", "ang_acc_b_y",
-            #               "ang_acc_b_z"]] = diff_angular_acc_mat
-
-            time_in_secods_np = resampled_df[["timestamp"]].to_numpy() / 1000000
-            time_in_secods_np = time_in_secods_np.flatten()
-            ang_acc_np = np.gradient(ang_vel_mat, time_in_secods_np, axis=0)
-            topic_type_bar.next()
-            resampled_df[["ang_acc_b_x", "ang_acc_b_y", "ang_acc_b_z"]] = ang_acc_np
+            resampled_df = self.condition_segment(
+                resample_dataframe_list(df_list, fts, self.resample_freq)
+            )
+        topic_type_bar.next()
 
         return resampled_df.dropna()
+
+    def actuator_columns(self):
+        """Dataframe columns carrying actuator channels, per the config."""
+        cols = []
+        for topic_dict in self.req_topics_dict.values():
+            if "actuator_type" not in topic_dict:
+                continue
+            names = topic_dict.get("dataframe_name", topic_dict["ulog_name"])
+            cols += [
+                name
+                for name, kind in zip(names, topic_dict["actuator_type"])
+                if kind != "timestamp"
+            ]
+        return cols
+
+    def condition_segment(self, df):
+        """Delay-align, band-match and differentiate one contiguous segment.
+
+        Two problems are being solved here, both of which bias the fit rather
+        than merely blur it.
+
+        1. TRANSPORT DELAY. A motor command does not become a moment
+           instantaneously -- ESC dead time plus rotor spin-up puts the response
+           tens of milliseconds behind the command. Regressing an unshifted
+           command against the response it caused is a straightforward
+           misalignment; on a real grazer log the roll correlation runs 0.19
+           unshifted against 0.65 at the correct shift.
+
+        2. BAND MISMATCH. Least squares assumes both sides of the regression
+           describe the same signal. The old code low-passed only the TARGET
+           (a 33-sample boxcar on angular velocity, 0.33 s at 100 Hz, first null
+           at 3 Hz and sign-inverting sidelobes above it) and left the regressor
+           at full bandwidth. Every regressor sample above 3 Hz was then paired
+           with a target that had been zeroed or phase-flipped, and the estimator
+           can only read that as "this input produces no output".
+
+           Worse, above the motor bandwidth the rate controller's D-term makes
+           the command a function of gyro noise rather than its cause, so the
+           true correlation there is NEGATIVE. Including that band at all drags
+           the moment coefficients toward zero regardless of filtering.
+
+        The fix is one zero-phase low-pass, at a cutoff inside the band where
+        command and response are actually coherent, applied identically to
+        BOTH sides. filtfilt is used rather than a causal filter precisely
+        because it adds no phase of its own -- a phase shift here would
+        reintroduce the misalignment that (1) exists to remove.
+
+        Opt in per config; without a `signal_conditioning` block the original
+        boxcar path runs unchanged so existing configs reproduce exactly.
+        """
+        cfg = self.config_dict.get("signal_conditioning", None)
+
+        if cfg is None:
+            return self.legacy_angular_acceleration(df)
+
+        dt = 1.0 / self.resample_freq
+        nyquist = 0.5 * self.resample_freq
+
+        # (1) Shift actuator channels FORWARD in time so each command lines up
+        # with the response it produced.
+        delay_s = cfg.get("actuator_delay_s", 0.0)
+        shift = int(round(delay_s / dt))
+        if shift > 0:
+            for col in self.actuator_columns():
+                if col in df:
+                    df[col] = df[col].shift(shift)
+            # The first `shift` rows now have no command to pair with.
+            df = df.iloc[shift:].reset_index(drop=True)
+
+        # (2) One matched zero-phase band-pass over every physical channel.
+        #
+        # The HIGH-PASS side matters as much as the low. The lever regressor is
+        # a differential of the four rotors, so common-mode hover thrust already
+        # cancels -- but what survives at DC is the static trim differential from
+        # an off-centre centre of gravity. That is a large constant in the
+        # regressor paired with a zero-mean target, because the model carries no
+        # CG-offset term able to explain a steady moment. Least squares can only
+        # shrink the coefficient to reconcile them. Removing DC costs nothing
+        # (a constant carries no information about a dynamic coefficient) and
+        # removes that bias.
+        lo = cfg.get("highpass_cutoff_hz", None)
+        hi = cfg.get("lowpass_cutoff_hz", None)
+        if lo is not None or hi is not None:
+            for name, f in (("highpass_cutoff_hz", lo), ("lowpass_cutoff_hz", hi)):
+                assert f is None or 0 < f < nyquist, (
+                    "%s (%s) must be between 0 and the Nyquist frequency (%s) "
+                    "implied by resample_freq %s"
+                    % (name, f, nyquist, self.resample_freq)
+                )
+            assert lo is None or hi is None or lo < hi, (
+                "highpass_cutoff_hz (%s) must be below lowpass_cutoff_hz (%s)"
+                % (lo, hi)
+            )
+            order = cfg.get("lowpass_order", 4)
+            if lo is not None and hi is not None:
+                b, a = signal.butter(order, [lo / nyquist, hi / nyquist], btype="band")
+            elif hi is not None:
+                b, a = signal.butter(order, hi / nyquist)
+            else:
+                b, a = signal.butter(order, lo / nyquist, btype="high")
+            # filtfilt runs the filter forwards and backwards, so it needs a
+            # comfortable margin of samples at each end.
+            if len(df) <= 3 * max(len(a), len(b)):
+                print(
+                    "Warning: segment of %d samples is too short to filter; "
+                    "leaving it unconditioned." % len(df)
+                )
+            else:
+                skip = {"timestamp", "landed"}
+                for col in df.columns:
+                    if col in skip or not np.issubdtype(df[col].dtype, np.floating):
+                        continue
+                    df[col] = signal.filtfilt(b, a, df[col].to_numpy())
+
+        # (3) Differentiate the already-filtered rates. No extra smoothing --
+        # the matched filter above is the only band limit, which is what keeps
+        # the target in the same band as the regressor.
+        if self.estimate_angular_acceleration:
+            t = df["timestamp"].to_numpy() / 1000000
+            ang_vel = df[["ang_vel_x", "ang_vel_y", "ang_vel_z"]].to_numpy()
+            df[["ang_acc_b_x", "ang_acc_b_y", "ang_acc_b_z"]] = np.gradient(
+                ang_vel, t, axis=0
+            )
+
+        return df
+
+    def legacy_angular_acceleration(self, df):
+        """Original 33-sample boxcar path, kept so existing configs reproduce.
+
+        Retained for backward compatibility only. See condition_segment for why
+        this biases the moment coefficients; prefer a `signal_conditioning`
+        block in new configs.
+        """
+        if not self.estimate_angular_acceleration:
+            return df
+
+        ang_vel_mat = df[["ang_vel_x", "ang_vel_y", "ang_vel_z"]].to_numpy()
+        for i in range(3):
+            ang_vel_mat[:, i] = (
+                np.convolve(ang_vel_mat[:, i], np.ones(33), mode="same") / 33
+            )
+
+        time_in_secods_np = df[["timestamp"]].to_numpy() / 1000000
+        time_in_secods_np = time_in_secods_np.flatten()
+        ang_acc_np = np.gradient(ang_vel_mat, time_in_secods_np, axis=0)
+        df[["ang_acc_b_x", "ang_acc_b_y", "ang_acc_b_z"]] = ang_acc_np
+        return df
 
     def visually_select_data(self, plot_config_dict=None):
         print(
