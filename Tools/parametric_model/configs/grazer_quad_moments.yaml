@@ -135,6 +135,12 @@ dynamics_model_config:
       vertical_c_m_leaver_lin: !!python/tuple [-5.0, 0.0]
       vertical_c_m_leaver_quad: !!python/tuple [0.0, 50.0]
       vertical_c_m_rolling: !!python/tuple [0.0, 2.0]
+      # Trim moments in N*m. Generous for a 1.7 kg quad, whose hover imbalance
+      # should be a few hundredths; wide enough not to bind, tight enough that
+      # railing here is a visible signal that something else is wrong.
+      c_m_trim_x: !!python/tuple [-1.0, 1.0]
+      c_m_trim_y: !!python/tuple [-1.0, 1.0]
+      c_m_trim_z: !!python/tuple [-1.0, 1.0]
       vertical_rot_drag_lin: !!python/tuple [0.0, 2.0]
       vertical_rot_thrust_lin: !!python/tuple [-5.0, 0.0]
       vertical_rot_thrust_quad: !!python/tuple [0.0, 50.0]
@@ -170,10 +176,24 @@ dynamics_model_config:
   signal_conditioning:
     actuator_delay_s: 0.032
 
+  # Band chosen from a sweep, not by taste. c_m_leaver_quad is FLAT at 3.1-3.6
+  # across highpass 1.2-2.5 Hz and lowpass 3-8 Hz; insensitivity to the band is
+  # what says the estimate is real rather than a filtering artifact. Below
+  # ~1 Hz it falls away steadily (2.55 at 0.2 Hz) with no plateau, so that
+  # region is contaminated, not informative. 1.5/4.0 is the centre of the flat
+  # region rather than the peak -- picking the maximum would be tuning to the
+  # answer we want.
   regression_prefilter:
-    highpass_cutoff_hz: 0.3
+    highpass_cutoff_hz: 1.5
     lowpass_cutoff_hz: 4.0
     order: 4
+
+  # Tried and REJECTED: moment_trim_offsets absorbs a steady trim moment, on the
+  # theory that the DC the high-pass removes is just a CG offset. It is not --
+  # replacing the high-pass with intercepts drove c_m_leaver_quad 2.91 -> 1.00
+  # and R2 0.398 -> 0.151. The sub-0.3 Hz content is slowly VARYING and does not
+  # obey the model, so a constant cannot absorb it. Left available but off.
+  moment_trim_offsets: False
 
   estimate_forces: False
   estimate_moments: True

@@ -154,8 +154,48 @@ class DynamicsModel:
                         KeyError
 
         X, y = self.prefilter_regression(X, y)
+        X, coef_list = self.add_moment_trim_offsets(X, coef_list, measurements)
 
         return X, y, coef_list
+
+    def add_moment_trim_offsets(self, X, coef_list, measurements):
+        """Give the moment fit one constant per body axis to absorb steady trim.
+
+        A multirotor in equilibrium carries a small permanent differential
+        between its rotors, because the centre of gravity never sits exactly on
+        the geometric centre. That shows up as a large constant in the lever
+        regressor paired with a zero-mean target -- angular acceleration
+        averages to zero over a flight, while the trim differential does not.
+
+        The model has no term able to explain a steady moment, so least squares
+        can only reconcile the two by shrinking the dynamic coefficient. Three
+        free constants let it explain the offset honestly instead, which leaves
+        the lever coefficient free to describe what it should: the response to
+        CHANGES in differential thrust.
+
+        This is the reason to prefer an intercept over simply high-passing the
+        regression. High-passing also removes the offset, but it throws away
+        every genuine low-frequency correlation along with it. The intercept
+        removes only the constant.
+
+        Appended AFTER prefiltering: a constant column is exactly what a
+        high-pass annihilates, and filtering a constant is meaningless anyway.
+        """
+        if not self.config_dict.get("moment_trim_offsets", False):
+            return X, coef_list
+        if "rot" not in measurements:
+            return X, coef_list
+
+        n = self.n_samples
+        rot_index = list(measurements).index("rot")
+        offsets = np.zeros((X.shape[0], 3))
+        for axis_index in range(3):
+            start = n * (rot_index * 3 + axis_index)
+            offsets[start : start + n, axis_index] = 1.0
+
+        names = ["c_m_trim_x", "c_m_trim_y", "c_m_trim_z"]
+        print("Adding moment trim offsets: %s" % ", ".join(names))
+        return np.hstack((X, offsets)), coef_list + names
 
     def prefilter_regression(self, X, y):
         """Band-limit both sides of the regression to a common, coherent band.

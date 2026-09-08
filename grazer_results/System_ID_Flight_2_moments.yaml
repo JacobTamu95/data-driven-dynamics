@@ -1,12 +1,12 @@
 coefficients:
-  vertical_c_m_drag_z_lin: -0.030573352324476034
-  vertical_c_m_drag_z_quad: 0.2015651261737694
-  vertical_c_m_leaver_lin: 7.611967400175352e-21
-  vertical_c_m_leaver_quad: 2.911692880045742
-  vertical_c_m_rolling: -1.1301389801448988e-18
+  vertical_c_m_drag_z_lin: -0.006400818290218026
+  vertical_c_m_drag_z_quad: 0.28145667461349955
+  vertical_c_m_leaver_lin: 2.2292352546395458e-21
+  vertical_c_m_leaver_quad: 3.568492814830928
+  vertical_c_m_rolling: 0.062161390232087305
 metrics:
-  R2: 0.39810932349611317
-  RMSE: 0.026368450878866245
+  R2: 0.492262757724517
+  RMSE: 0.019687256604194635
 model:
   vertical_:
   - dataframe_name: u0
@@ -63,14 +63,14 @@ model:
     turning_direction: 1
 number of samples: 17274
 Cramer:
-  vertical_c_m_drag_z_lin: 0.30935268653855547
-  vertical_c_m_drag_z_quad: 0.2179833834616251
-  vertical_c_m_leaver_lin: 0.4209929319520508
-  vertical_c_m_leaver_quad: 0.9709490291809824
-  vertical_c_m_rolling: 0.18450918936752078
+  vertical_c_m_drag_z_lin: 0.501932628710253
+  vertical_c_m_drag_z_quad: 0.6383978614020849
+  vertical_c_m_leaver_lin: 0.7783855399031079
+  vertical_c_m_leaver_quad: 1.3343302083773743
+  vertical_c_m_rolling: 0.5950704784679419
 FIM:
   rot:
-    det: 30588317.87774471
-    inv_cond: 2.0284690054798423e-06
-    min_eig: 0.0014937766483053285
-    trace: 0.10947272042671913
+    det: 20986.04307649143
+    inv_cond: 5.579573342055699e-06
+    min_eig: 0.0007446382615434994
+    trace: 0.018895083638347743
