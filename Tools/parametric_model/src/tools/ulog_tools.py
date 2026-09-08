@@ -50,7 +50,16 @@ def load_ulog(rel_ulog_path):
     return ulog
 
 
-def pandas_from_topic(ulog, topic_list, id=0):
+def pandas_from_topic(ulog, topic_list, id=0, columns=None):
+    """Load one or more ulog topics into a dataframe.
+
+    `columns`: optional list of column names actually needed by the caller.
+    This matters for fixed-width array topics such as actuator_motors, where
+    PX4 leaves the unused slots (control[4..11] on a quad) as NaN. The blanket
+    dropna() below then deletes *every* row, silently yielding an empty
+    dataframe. Restricting the NaN check to the columns we actually consume
+    keeps those topics usable.
+    """
     assert type(topic_list) is list, "topic_list input must be a list"
     topics_df = pd.DataFrame()
     for topic in topic_list:
@@ -60,4 +69,6 @@ def pandas_from_topic(ulog, topic_list, id=0):
             topics_df = curr_df
         else:
             topics_df = pd.concat([topics_df, curr_df], axis=1)
+    if columns is not None:
+        return topics_df.dropna(subset=columns)
     return topics_df.dropna()

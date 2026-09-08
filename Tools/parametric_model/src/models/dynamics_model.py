@@ -203,13 +203,32 @@ class DynamicsModel:
         return X_body_rot, X_body_rot_coef_list
 
     def normalize_actuators(
-        self, actuator_topic_types=["actuator_outputs"], control_outputs_used=False
+        self, actuator_topic_types=None, control_outputs_used=False
     ):
         # u : normalize actuator output from pwm to be scaled between 0 and 1
         # To be adjusted using parameters:
 
+        if actuator_topic_types is None:
+            # Derive the actuator topics from the config rather than assuming
+            # "actuator_outputs". Any topic declaring actuator_type carries
+            # actuator channels, so this also supports actuator_motors.
+            actuator_topic_types = [
+                topic
+                for topic, spec in self.req_topics_dict.items()
+                if "actuator_type" in spec
+            ] or ["actuator_outputs"]
+
+        # Range of the logged actuator signal, used to map it onto the 0..1 that
+        # the rotor models expect. actuator_outputs is PWM in microseconds, but
+        # actuator_motors is already normalized -- for that case set
+        # min_output/max_output to 0/1 in the config to make this a pass-through.
         # This should probably be adapted in the future to allow different values for each actuator specified in the config.
-        if control_outputs_used:
+        norm_config = self.config_dict.get("actuator_normalization", None)
+        if norm_config is not None:
+            self.min_output = norm_config["min_output"]
+            self.max_output = norm_config["max_output"]
+            self.trim_output = norm_config["trim_output"]
+        elif control_outputs_used:
             self.min_output = -1
             self.max_output = 1.01
             self.trim_output = 0

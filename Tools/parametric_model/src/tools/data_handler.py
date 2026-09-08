@@ -170,12 +170,13 @@ class DataHandler(object):
             if len(fts) == 1:
                 self.data_df = self.compute_resampled_dataframe(ulog, fts[0])
             else:
-                for ft in fts:
-                    # check if the dataframe already exists and if so, append to it
-                    if getattr(self, "data_df", None) is None:
-                        self.data_df = self.compute_resampled_dataframe(ulog, ft)
-                    else:
-                        self.data_df.append(self.compute_resampled_dataframe(ulog, ft))
+                # LOCAL FIX: the original loop called DataFrame.append, which was
+                # removed in pandas 2.0. Even on pandas 1.x it was a no-op bug --
+                # append returns a new frame rather than mutating in place, so every
+                # segment after the first was silently discarded.
+                # compute_resampled_dataframe already concatenates internally when
+                # handed the full list of flight times, so just pass it through.
+                self.data_df = self.compute_resampled_dataframe(ulog, fts)
 
             return True
 
@@ -215,11 +216,19 @@ class DataHandler(object):
         for topic_type in self.req_topics_dict.keys():
             topic_dict = self.req_topics_dict[topic_type]
 
+            # Only the columns named in the config participate in the NaN check --
+            # see pandas_from_topic. Without this, topics that carry unused NaN
+            # array slots (e.g. actuator_motors on a 4-rotor airframe) come back
+            # completely empty.
             if "id" in topic_dict.keys():
                 id = topic_dict["id"]
-                curr_df = pandas_from_topic(ulog, [topic_type], id)
+                curr_df = pandas_from_topic(
+                    ulog, [topic_type], id, columns=topic_dict["ulog_name"]
+                )
             else:
-                curr_df = pandas_from_topic(ulog, [topic_type])
+                curr_df = pandas_from_topic(
+                    ulog, [topic_type], columns=topic_dict["ulog_name"]
+                )
 
             curr_df = curr_df[topic_dict["ulog_name"]]
             if "dataframe_name" in topic_dict.keys():
