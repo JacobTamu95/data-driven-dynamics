@@ -1,0 +1,219 @@
+# Grazer quad -- real flight system ID config.
+#
+# Vehicle constants taken from rotorpy config/grazer_generated.yaml.
+# NOTE ON FRAMES: rotorpy stores rotor positions in a FLU body frame
+# (x forward, y LEFT, z UP); this tool expects FRD (x forward, y RIGHT,
+# z DOWN). Positions below are converted as (x, -y, -z).
+#
+# Motor mapping verified against the log's own CA_ROTOR* parameters:
+#   CA_ROTOR0 (+0.15,+0.15) KM=+0.05 -> front right  == rotorpy r1
+#   CA_ROTOR1 (-0.15,-0.15) KM=+0.05 -> back  left   == rotorpy r2
+#   CA_ROTOR2 (+0.15,-0.15) KM=-0.05 -> front left   == rotorpy r3
+#   CA_ROTOR3 (-0.15,+0.15) KM=-0.05 -> back  right  == rotorpy r4
+# so actuator_motors.control[0..3] lines up with u0..u3 below.
+#
+# ARM LENGTH DISCREPANCY: PX4's control allocator is configured with
+# 0.15 m x/y components, rotorpy's physical model uses 0.175 m. We use the
+# physical value here, since this config must describe the real airframe,
+# not the mixer's belief about it. The identified lever-arm moment
+# coefficients scale inversely with this number.
+#
+# PROP DIAMETER is deliberately left unset (defaults to 1.0 m), so the
+# rho*D^4 / rho*D^5 scalings are absorbed into the identified coefficients.
+# They remain valid for prediction but are NOT dimensionless prop
+# coefficients. Set `diameter:` on each rotor to recover those.
+
+model_name: "Grazer Quad"
+model_type: "Standard Multirotor"
+model_class: "MultiRotorModel"
+extractor_class: "Not implemented"
+
+extractor_config:
+  "Not implemented"
+
+  # all vectors in FRD body frame if not specified otherwise
+model_config:
+  # MEASURED 2026-08-25: bench-measured mass and calculated moments of inertia
+  # for the real grazer airframe.  These SUPERSEDE the old nominal placeholders
+  # (mass 2.0, Ixx=Iyy=0.0217, Izz=0.04) that were carried over from
+  # rotorpy's config/grazer_generated.yaml -- those were symmetric round-number
+  # estimates, not measurements.
+  #
+  # Sanity check: for a roughly planar mass distribution the perpendicular-axis
+  # relation Izz ~= Ixx + Iyy should hold.  0.03407 vs 0.01813 + 0.02063 =
+  # 0.03876, i.e. within ~12%, which is what you expect once the battery/stack
+  # mass sitting off the rotor plane is accounted for.  Good consistency.
+  #
+  # NOTE: mass enters the FORCE fit linearly (identified thrust coefficients
+  # scale directly with it) and inertia enters the MOMENT fit linearly, so the
+  # 15% mass drop (2.0 -> 1.7) will shrink the identified thrust coefficients
+  # by ~15% relative to the 2026-08-10 run.
+  mass: 1.7
+  moment_of_inertia:
+    Ixx: 0.01813295223
+    Iyy: 0.02062901673
+    Izz: 0.03407476595
+  actuators:
+    rotors:
+      vertical_:
+        - rotor_0:
+          description: "front right rotor"
+          rotor_type: "RotorModel"
+          dataframe_name: "u0"
+          rotor_axis:
+            - 0
+            - 0
+            - -1
+          turning_direction: -1
+          position:
+            - 0.175
+            - 0.175
+            - -0.06
+
+        - rotor_1:
+          description: "back left rotor"
+          rotor_type: "RotorModel"
+          dataframe_name: "u1"
+          rotor_axis:
+            - 0
+            - 0
+            - -1
+          turning_direction: -1
+          position:
+            - -0.175
+            - -0.175
+            - -0.06
+
+        - rotor_2:
+          description: "front left rotor"
+          rotor_type: "RotorModel"
+          dataframe_name: "u2"
+          rotor_axis:
+            - 0
+            - 0
+            - -1
+          turning_direction: 1
+          position:
+            - 0.175
+            - -0.175
+            - -0.06
+
+        - rotor_3:
+          description: "back right rotor"
+          rotor_type: "RotorModel"
+          dataframe_name: "u3"
+          rotor_axis:
+            - 0
+            - 0
+            - -1
+          turning_direction: 1
+          position:
+            - -0.175
+            - 0.175
+            - -0.06
+
+dynamics_model_config:
+  optimizer_config:
+    optimizer_class: "QPOptimizer"
+    optimzation_parameters:
+    parameter_bounds:
+      c_d_fuselage_x: !!python/tuple [0.0, 50.0]
+      c_d_fuselage_y: !!python/tuple [0.0, 50.0]
+      c_d_fuselage_z: !!python/tuple [0.0, 50.0]
+      vertical_c_m_drag_z_lin: !!python/tuple [-1.0, 0.0]
+      vertical_c_m_drag_z_quad: !!python/tuple [0.0, 2.0]
+      vertical_c_m_leaver_lin: !!python/tuple [-1.0, 0.0]
+      vertical_c_m_leaver_quad: !!python/tuple [0.0, 2.0]
+      vertical_c_m_rolling: !!python/tuple [0.0, 2.0]
+      vertical_rot_drag_lin: !!python/tuple [0.0, 2.0]
+      vertical_rot_thrust_lin: !!python/tuple [-5.0, 0.0]
+      vertical_rot_thrust_quad: !!python/tuple [0.0, 50.0]
+  # actuator_motors/control[] is already normalized 0..1, so make the
+  # PWM->normalized mapping a pass-through (the default assumes 0..2000 us).
+  actuator_normalization:
+    min_output: 0.0
+    max_output: 1.0
+    trim_output: 0.5
+  estimate_forces: True
+  estimate_moments: True
+  resample_freq: 100.0
+  estimate_angular_acceleration: True
+  data:
+    required_ulog_topics:
+      # CRITICAL: actuator_motors, NOT actuator_outputs. On a real FC
+      # actuator_outputs is PWM in microseconds (0..1999 in this log); the
+      # rotor model requires inputs normalized to 0..1, which is what
+      # actuator_motors/control[] carries.
+      actuator_motors:
+        ulog_name:
+          - "timestamp"
+          - "control[0]"
+          - "control[1]"
+          - "control[2]"
+          - "control[3]"
+        dataframe_name:
+          - "timestamp"
+          - "u0"
+          - "u1"
+          - "u2"
+          - "u3"
+        actuator_type:
+          - "timestamp"
+          - "motor"
+          - "motor"
+          - "motor"
+          - "motor"
+      vehicle_local_position:
+        ulog_name:
+          - "timestamp"
+          - "vx"
+          - "vy"
+          - "vz"
+      vehicle_attitude:
+        ulog_name:
+          - "timestamp"
+          - "q[0]"
+          - "q[1]"
+          - "q[2]"
+          - "q[3]"
+        dataframe_name:
+          - "timestamp"
+          - "q0"
+          - "q1"
+          - "q2"
+          - "q3"
+      vehicle_angular_velocity:
+        ulog_name:
+          - "timestamp"
+          - "xyz[0]"
+          - "xyz[1]"
+          - "xyz[2]"
+        dataframe_name:
+          - "timestamp"
+          - "ang_vel_x"
+          - "ang_vel_y"
+          - "ang_vel_z"
+      sensor_combined:
+        ulog_name:
+          - "timestamp"
+          - "accelerometer_m_s2[0]"
+          - "accelerometer_m_s2[1]"
+          - "accelerometer_m_s2[2]"
+          - "gyro_rad[0]"
+          - "gyro_rad[1]"
+          - "gyro_rad[2]"
+        dataframe_name:
+          - "timestamp"
+          - "acc_b_x"
+          - "acc_b_y"
+          - "acc_b_z"
+          - "ang_acc_b_x"
+          - "ang_acc_b_y"
+          - "ang_acc_b_z"
+      vehicle_land_detected:
+        ulog_name:
+          - "timestamp"
+          - "landed"
+        dataframe_name:
+          - "timestamp"
+          - "landed"
