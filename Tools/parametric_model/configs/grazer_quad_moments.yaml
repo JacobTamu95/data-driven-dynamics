@@ -1,4 +1,10 @@
-# Grazer quad -- real flight system ID config.
+# Grazer quad -- real flight system ID config, MOMENT half.
+#
+# Split from grazer_quad.yaml because the two halves need OPPOSITE conditioning:
+# the force fit needs DC (hover thrust balances weight), the moment fit must
+# exclude it (a static CG trim differential the model cannot explain). Run both
+# and take the force coefficients from grazer_quad.yaml, the moment coefficients
+# from this file.
 #
 # Vehicle constants taken from rotorpy config/grazer_generated.yaml.
 # NOTE ON FRAMES: rotorpy stores rotor positions in a FLU body frame
@@ -155,15 +161,22 @@ dynamics_model_config:
   # a steady-state relationship, and stripping DC rails rot_thrust_quad and
   # collapses R2 to 0.08. The moment fit has the opposite requirement -- see
   # grazer_quad_moments.yaml.
+  # highpass_cutoff_hz 0.3 -- strips the static trim differential from an
+  # off-centre CG. That is a large constant in the lever regressor paired with a
+  # zero-mean target, because the model carries no CG-offset term able to explain
+  # a steady moment; least squares can only shrink the coefficient to reconcile
+  # them. A constant carries no information about a dynamic coefficient, so
+  # removing it costs nothing and removes the bias.
   signal_conditioning:
     actuator_delay_s: 0.032
 
   regression_prefilter:
+    highpass_cutoff_hz: 0.3
     lowpass_cutoff_hz: 4.0
     order: 4
 
-  estimate_forces: True
-  estimate_moments: False
+  estimate_forces: False
+  estimate_moments: True
   resample_freq: 100.0
   estimate_angular_acceleration: True
   data:
