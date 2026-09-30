@@ -33,6 +33,28 @@
 # The user's measurement frame maps onto FRD with NO sign flips: their first
 # coordinate already increases to the right and their second increases forward.
 #
+# CG -- MEASURED 2026-09-30, relative to the ground under the back left motor,
+# with z measured UPWARD:  CG = (0.1895, 0.1575, 0.1714) m, motor centers 6 in
+# (0.1524 m) above the ground.
+#
+# In x and y the CG is EXACTLY the centre of the motor rectangle (offset 0.0 in
+# both), so all four arms stay equal and there is no static CG trim moment.  The
+# symmetric-rectangle model above is therefore correct, not merely assumed.
+#
+# In z, converting to FRD (positive DOWN) puts the CG at -0.1714 and the motors
+# at -0.1524, so the rotor position relative to the CG is
+#     z = -0.1524 - (-0.1714) = +0.019 m
+# i.e. the rotors sit 19 mm BELOW the CG.  The previous -0.06 in this file had
+# the sign backwards AND was 3x too large.  z does NOT affect c_m_leaver_quad
+# (cross(r, [0,0,-1]) = (-r_y, r_x, 0), so z cancels), but it does enter the drag
+# and rolling moments and the rotational airspeed v + omega x r.
+#
+# CAVEAT: 0.1524 m is the MOTOR CENTRE height; thrust acts at the PROP DISC,
+# roughly 15-25 mm higher, which would put the thrust plane at ~0.172 m -- level
+# with the CG, i.e. z ~ 0.  The true value is therefore somewhere in 0.000 to
+# +0.019, and the whole offset is within its own uncertainty.  Sensitivity was
+# checked and is negligible (see grazer_results/README.md).
+#
 # The lever vector is r x a_hat, which for a vertical rotor axis picks out the
 # COMPONENTS -- roll arm = r_y, pitch arm = r_x.  The radial distance never
 # appears.  Because the frame is RECTANGULAR the two arms genuinely differ by
@@ -110,7 +132,7 @@ model_config:
           position:
             - 0.1575
             - 0.1895
-            - -0.06
+            - 0.019
 
         - rotor_1:
           description: "back left rotor"
@@ -124,7 +146,7 @@ model_config:
           position:
             - -0.1575
             - -0.1895
-            - -0.06
+            - 0.019
 
         - rotor_2:
           description: "front left rotor"
@@ -138,7 +160,7 @@ model_config:
           position:
             - 0.1575
             - -0.1895
-            - -0.06
+            - 0.019
 
         - rotor_3:
           description: "back right rotor"
@@ -152,7 +174,7 @@ model_config:
           position:
             - -0.1575
             - 0.1895
-            - -0.06
+            - 0.019
 
 dynamics_model_config:
   optimizer_config:

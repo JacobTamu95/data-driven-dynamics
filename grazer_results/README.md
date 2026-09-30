@@ -15,15 +15,17 @@ and body rates to +/-3.6 rad/s.
 
 Both align the 32 ms actuator delay, and both use the geometry measured
 2026-09-30: motor centers form a 0.379 (wide) x 0.315 (long) m rectangle, so the
-position components are x = 0.1575, y = 0.1895 m.
+position components are x = 0.1575, y = 0.1895 m. The CG was measured the same
+day and sits EXACTLY at the centre of that rectangle in x and y, so all four arms
+are equal; rotors are 19 mm below it in z.
 
 | quantity | value | note |
 |---|---|---|
 | `rot_thrust_quad` | 12.65 | 15.5 N/rotor at u=1; hover at u=0.519 for the measured 1.7 kg |
-| `rot_drag_lin` | 0.0838 | vertical drag; the usable translational term |
+| `rot_drag_lin` | 0.0833 | vertical drag; the usable translational term |
 | `c_m_leaver_quad` | 3.39 | should equal `rot_thrust_quad` by construction -- 3.7x short, OPEN |
 | `c_m_drag_z_quad` | 0.2815 | K_M = 0.0222 m, agreeing with an independent pilot-stick IV estimate (0.0203) |
-| `c_m_rolling` | 0.0538 | previously railed at zero |
+| `c_m_rolling` | 0.0676 | previously railed at zero |
 | force R2 | 0.956 | trustworthy |
 | moment R2 | 0.453 | the honest command/response coherence on a closed-loop flight |
 
@@ -111,23 +113,71 @@ decelerating one coasts down on drag alone, so net DIFFERENTIAL thrust is smalle
 than twice the commanded delta even though COLLECTIVE thrust is correct. That is
 exactly the pattern here -- `rot_thrust_quad` matches hover weight to 4% while the
 lever coefficient falls 3.7x short. Confirming it needs rotor speed measured
-rather than inferred from the command, and this board logs no `esc_status` topic.
+rather than inferred from the command.
 
-## Open 2: rotor positions are referenced to the MOTOR RECTANGLE's center, not the CG
+**Status of that measurement.** No `esc_status` is published and the airframe has
+no ESC telemetry wired, but the FIRMWARE side is already configured:
+`DSHOT_TEL_CFG = 103` (DShot telemetry assigned to TELEM3, whose default is 0 =
+disabled, so this was set deliberately), `MOT_POLE_COUNT = 14` for the eRPM->RPM
+conversion, and no other `*_CFG` claims TELEM3 (DDS is on TELEM2). So enabling it
+is a WIRING job, not a parameter job: one signal wire from the ESC telemetry pad
+to TELEM3 RX, if the 4-in-1 exposes that pad.
 
-The tool has no CG field. `rotor_position` is used directly as the moment arm
-(`np.cross(rotor_position, rotor_axis)`, rotor_model.py:190) and as the
-rotational-airspeed lever (`v + omega x r`, rotor_model.py:96), so it must
-already be CG-relative. The values above assume the CG sits at the geometric
-center of the motor rectangle, which is an assumption, not a measurement.
+The wire-free alternative -- bidirectional DShot, which returns eRPM on the signal
+line itself -- is NOT available on the flown firmware: `DSHOT_BIDIR_EDT` exists in
+the newer upstream tree but not in the mavericks v1.14 fork this board runs. That
+route needs a firmware upgrade.
 
-A CG offset would matter twice over:
-1. It makes the four arms UNEQUAL -- the front pair gets a different arm than the
-   rear -- which the current symmetric-rectangle model cannot express at all.
-2. It produces a STATIC trim moment, which is precisely what the 1.5 Hz highpass
-   is there to discard. Measuring the offset could let that highpass be relaxed,
-   recovering the sub-1 Hz band that currently has to be thrown away -- and that
-   band holds most of the maneuvering content.
+**No PX4 parameter controls the coasting itself.** PX4 only sends a throttle
+value; whether a decelerating rotor is actively braked or left to coast down on
+prop drag is ESC firmware behaviour (BLHeli_32 / AM32 "Damped Light" /
+regenerative braking / complementary PWM). If braking is off, deceleration is set
+by prop aerodynamic drag and rotor inertia alone, which is exactly the asymmetry
+hypothesised here. Enabling active braking in the ESC would be the fix, not a
+PX4 param.
 
-Measuring the CG in x, y and z is therefore the cheapest available next step, and
-unlike the ESC-telemetry blocker on Open 1 it needs no new hardware.
+## Separate finding: THR_MDL_FAC = 0.0 is wrong for this airframe
+
+`THR_MDL_FAC = 0.0` tells PX4 that thrust is LINEAR in the throttle command. The
+force identification says otherwise and says it cleanly: `rot_thrust_quad` =
+12.65 carries essentially everything while `rot_thrust_lin` = -0.062 is
+negligible, i.e. thrust is very nearly pure quadratic in the command (R2 0.956).
+PX4 is therefore inverting the wrong curve, which makes the effective attitude
+loop gain vary with throttle -- high at low collective, low at high collective.
+
+This does NOT explain the lever deficit (a differential pair around hover gives
+`c[(u+d)^2 - (u-d)^2] = 4*c*u*d`, which is already linear in d and symmetric), but
+it is a real calibration error worth correcting independently. Related board
+errors are tracked in the identified-vs-allocator comparison: `CA_ROTOR*_CT` 6.5
+against an identified 15.5 N, and `CA_ROTOR*_KM` 0.05 against an identified
+0.0222 m.
+
+## CLOSED: the CG is measured, and it is exactly centred
+
+Measured 2026-09-30 relative to the ground under the back left motor, z upward:
+CG = (0.1895, 0.1575, 0.1714) m, motor centres 0.1524 m (6 in) above ground.
+
+In x and y that is EXACTLY the centre of the motor rectangle -- offset 0.0 in
+both axes. So all four arms are equal, the symmetric-rectangle model is correct
+rather than merely assumed, and there is NO static CG trim moment. That closes
+the question but also removes a hoped-for lead: the sub-1 Hz content the 1.5 Hz
+highpass discards is NOT a CG trim offset, so the highpass cannot be relaxed on
+those grounds. Whatever lives down there is something else.
+
+In z, converting to FRD puts the rotors 19 mm BELOW the CG (z = +0.019), where
+the config previously said -0.06 -- wrong sign, 3x too large. It turns out not to
+matter:
+
+| z | `c_m_leaver_quad` | `c_m_drag_z_quad` | `c_m_rolling` | R2 |
+|---|---|---|---|---|
+| +0.019 (measured) | 3.3857 | 0.2815 | 0.0676 | 0.4533 |
+| 0.0 | 3.3857 | 0.2815 | 0.0644 | 0.4533 |
+| -0.06 (old, wrong) | 3.3855 | 0.2815 | 0.0538 | 0.4531 |
+
+Only `c_m_rolling` responds, and R2 does not move. The lever term is structurally
+immune: `cross(r, [0,0,-1]) = (-r_y, r_x, 0)`, so z cancels exactly.
+
+NB 0.1524 m is the MOTOR CENTRE height, but thrust acts at the PROP DISC some
+15-25 mm higher, which would put the thrust plane level with the CG (z ~ 0). The
+honest value is somewhere in 0.000 to +0.019 -- the offset is smaller than its own
+uncertainty. Given the table above, this does not matter.

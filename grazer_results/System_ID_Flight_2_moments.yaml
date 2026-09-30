@@ -1,12 +1,12 @@
 coefficients:
   vertical_c_m_drag_z_lin: -0.006548089188059886
   vertical_c_m_drag_z_quad: 0.28151127947471705
-  vertical_c_m_leaver_lin: -1.4578314573617762e-20
-  vertical_c_m_leaver_quad: 3.3855049884619386
-  vertical_c_m_rolling: 0.05384224450341679
+  vertical_c_m_leaver_lin: -1.7085358370029905e-20
+  vertical_c_m_leaver_quad: 3.3856931304902966
+  vertical_c_m_rolling: 0.06755126137293002
 metrics:
-  R2: 0.45307352915325083
-  RMSE: 0.020432907253753546
+  R2: 0.45334727590275636
+  RMSE: 0.02042779309095271
 model:
   vertical_:
   - dataframe_name: u0
@@ -14,7 +14,7 @@ model:
     position:
     - 0.1575
     - 0.1895
-    - -0.06
+    - 0.019
     rotor_0: null
     rotor_axis:
     - 0
@@ -27,7 +27,7 @@ model:
     position:
     - -0.1575
     - -0.1895
-    - -0.06
+    - 0.019
     rotor_1: null
     rotor_axis:
     - 0
@@ -40,7 +40,7 @@ model:
     position:
     - 0.1575
     - -0.1895
-    - -0.06
+    - 0.019
     rotor_2: null
     rotor_axis:
     - 0
@@ -53,7 +53,7 @@ model:
     position:
     - -0.1575
     - 0.1895
-    - -0.06
+    - 0.019
     rotor_3: null
     rotor_axis:
     - 0
@@ -65,12 +65,12 @@ number of samples: 17274
 Cramer:
   vertical_c_m_drag_z_lin: 0.5144958858020057
   vertical_c_m_drag_z_quad: 0.6401851087119352
-  vertical_c_m_leaver_lin: 0.8005608450021056
-  vertical_c_m_leaver_quad: 1.3269890859491236
-  vertical_c_m_rolling: 0.5961264472482303
+  vertical_c_m_leaver_lin: 0.800548538442283
+  vertical_c_m_leaver_quad: 1.3267720785222614
+  vertical_c_m_rolling: 0.58658312066608
 FIM:
   rot:
-    det: 19198.34846105846
-    inv_cond: 5.750711395985646e-06
-    min_eig: 0.0007450012630613211
-    trace: 0.018477100408555637
+    det: 19828.119439027923
+    inv_cond: 5.752871825613036e-06
+    min_eig: 0.000745281145442879
+    trace: 0.01860948557908327
