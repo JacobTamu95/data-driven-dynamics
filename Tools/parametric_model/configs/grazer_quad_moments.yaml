@@ -19,44 +19,46 @@
 # so actuator_motors.control[0..3] lines up with u0..u3 below.
 #
 # ARM LENGTH -- MEASURED 2026-09-30, RECTANGULAR X FRAME.
-# Motor centers were measured as a rectangle, origin at the back left motor:
-#     (0, 0)   (0, 0.315)   (0.379, 0)   (0.379, 0.315)  m
-# The geometric center is therefore (0.1895, 0.1575), giving position
-# components
-#     x (front<->back half-span) = 0.379 / 2 = 0.1895 m
-#     y (left<->right half-span) = 0.315 / 2 = 0.1575 m
-#     radial hub->motor          = sqrt(.1895^2 + .1575^2) = 0.24641 m
+# Motor centers were measured as a rectangle, each motor identified by name,
+# origin at the back left motor:
+#     back left  (0,     0    )      back right (0.379, 0    )
+#     front left (0,     0.315)      front right(0.379, 0.315)
+# so the FIRST coordinate is the lateral axis and the SECOND is fore-aft.  The
+# airframe is WIDER THAN IT IS LONG: 0.379 m left-to-right against 0.315 m
+# front-to-back.  Halving each gives the position components
+#     x (front<->back half-span) = 0.315 / 2 = 0.1575 m
+#     y (left<->right half-span) = 0.379 / 2 = 0.1895 m
+#     radial hub->motor          = sqrt(.1575^2 + .1895^2) = 0.24641 m
+#
+# The user's measurement frame maps onto FRD with NO sign flips: their first
+# coordinate already increases to the right and their second increases forward.
 #
 # The lever vector is r x a_hat, which for a vertical rotor axis picks out the
 # COMPONENTS -- roll arm = r_y, pitch arm = r_x.  The radial distance never
 # appears.  Because the frame is RECTANGULAR the two arms genuinely differ by
-# 20%, so a single shared value cannot represent both.
+# 20%, so a single shared value cannot represent both.  Here the ROLL arm is the
+# long one (0.1895) and the PITCH arm the short one (0.1575).
 #
 # The old 0.175 in this file was neither: it is very nearly the AVERAGE of the
 # two half-spans (0.1735).  Used as both components it happens to reproduce the
 # correct radial magnitude to 0.4% -- which is why nothing caught it -- but it
-# mis-splits that magnitude, running the pitch arm 8% short and the roll arm 11%
+# mis-splits that magnitude, running the roll arm 8% short and the pitch arm 11%
 # long.  Averaging is only harmless when the two spans are equal.
 #
 # NB PX4's CA_ROTOR*_PX/PY = 0.15 on the board has the same defect and is
 # additionally 5-21% short per axis, and rotorpy's gui/vehicles/grazer.yaml
 # rotor_pos carries the old 0.175 components.  Both describe the wrong airframe.
 #
-# AXIS ASSIGNMENT comes from the measurement, NOT from fit quality.  The motors
-# were identified individually: (0,0) back left, (0,.315) back right,
-# (.379,0) front left, (.379,.315) front right -- so the first coordinate is the
-# fore-aft axis and the frame is 20% longer than it is wide.
-#
-# Do not be tempted to pick the assignment by R2.  Swapping x and y here happens
-# to give a WORSE moment R2 (0.453 vs 0.526), but that agreement is luck and not
-# a check: one shared c_m_leaver_quad serves both the roll and the pitch
-# equation, so the ratio r_y/r_x is the only freedom the optimizer has to
-# reweight one axis against the other.  With a 3.4x unexplained deficit in that
-# coefficient (see grazer_results/README.md) the arm ratio gets used as a
-# nuisance parameter that absorbs part of it, so R2 rewards whichever ratio
-# soaks up the most residual -- which need not be the true one.  Geometry is an
-# INPUT here, measured with a tape; the regression cannot be asked to identify
-# it.
+# AXIS ASSIGNMENT COMES FROM THE MEASUREMENT, NOT FROM FIT QUALITY, and this
+# airframe is the cautionary case: the measured geometry fits WORSE.  Swapping
+# x and y gives moment R2 0.526 against 0.484 for the truth.  The reason is that
+# one shared c_m_leaver_quad serves both the roll and the pitch equation, so the
+# ratio r_y/r_x is the only freedom the optimizer has to reweight one axis
+# against the other.  With a 3.7x unexplained deficit in that coefficient (see
+# grazer_results/README.md) the arm ratio gets used as a nuisance parameter that
+# absorbs part of it, and R2 rewards whichever ratio soaks up the most residual.
+# Geometry is an INPUT here, measured with a tape.  Do not let the regression
+# talk you out of it.
 #
 # PROP DIAMETER is deliberately left unset (defaults to 1.0 m), so the
 # rho*D^4 / rho*D^5 scalings are absorbed into the identified coefficients.
@@ -106,8 +108,8 @@ model_config:
             - -1
           turning_direction: -1
           position:
-            - 0.1895
             - 0.1575
+            - 0.1895
             - -0.06
 
         - rotor_1:
@@ -120,8 +122,8 @@ model_config:
             - -1
           turning_direction: -1
           position:
-            - -0.1895
             - -0.1575
+            - -0.1895
             - -0.06
 
         - rotor_2:
@@ -134,8 +136,8 @@ model_config:
             - -1
           turning_direction: 1
           position:
-            - 0.1895
-            - -0.1575
+            - 0.1575
+            - -0.1895
             - -0.06
 
         - rotor_3:
@@ -148,8 +150,8 @@ model_config:
             - -1
           turning_direction: 1
           position:
-            - -0.1895
-            - 0.1575
+            - -0.1575
+            - 0.1895
             - -0.06
 
 dynamics_model_config:

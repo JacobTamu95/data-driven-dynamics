@@ -1,20 +1,20 @@
 coefficients:
-  c_d_fuselage_x: 0.14138696494687208
-  c_d_fuselage_y: 0.12085815600226271
-  c_d_fuselage_z: -2.7893856276170783e-12
-  vertical_rot_drag_lin: 0.08388325242565507
-  vertical_rot_thrust_lin: -0.06211863826786358
-  vertical_rot_thrust_quad: 12.652667672603204
+  c_d_fuselage_x: 0.1414423497518451
+  c_d_fuselage_y: 0.12090953372193734
+  c_d_fuselage_z: -2.7863943824930373e-12
+  vertical_rot_drag_lin: 0.08383031696702187
+  vertical_rot_thrust_lin: -0.06203692236892988
+  vertical_rot_thrust_quad: 12.652593033458226
 metrics:
-  R2: 0.9557104660837503
-  RMSE: 1.738754126786546
+  R2: 0.9557103220696399
+  RMSE: 1.7387569536951073
 model:
   vertical_:
   - dataframe_name: u0
     description: front right rotor
     position:
-    - 0.1895
     - 0.1575
+    - 0.1895
     - -0.06
     rotor_0: null
     rotor_axis:
@@ -26,8 +26,8 @@ model:
   - dataframe_name: u1
     description: back left rotor
     position:
-    - -0.1895
     - -0.1575
+    - -0.1895
     - -0.06
     rotor_1: null
     rotor_axis:
@@ -39,8 +39,8 @@ model:
   - dataframe_name: u2
     description: front left rotor
     position:
-    - 0.1895
-    - -0.1575
+    - 0.1575
+    - -0.1895
     - -0.06
     rotor_2: null
     rotor_axis:
@@ -52,8 +52,8 @@ model:
   - dataframe_name: u3
     description: back right rotor
     position:
-    - -0.1895
-    - 0.1575
+    - -0.1575
+    - 0.1895
     - -0.06
     rotor_3: null
     rotor_axis:
@@ -64,15 +64,15 @@ model:
     turning_direction: 1
 number of samples: 17274
 Cramer:
-  c_d_fuselage_x: 0.02423137579840192
-  c_d_fuselage_y: 0.02320739319214047
-  c_d_fuselage_z: 0.05053655034496767
-  vertical_rot_drag_lin: 0.02208429925892627
-  vertical_rot_thrust_lin: 0.025028903079328556
-  vertical_rot_thrust_quad: 0.03065900387137376
+  c_d_fuselage_x: 0.02423157904977874
+  c_d_fuselage_y: 0.023207606196819778
+  c_d_fuselage_z: 0.05054179239765696
+  vertical_rot_drag_lin: 0.02208451154109823
+  vertical_rot_thrust_lin: 0.025037416685637897
+  vertical_rot_thrust_quad: 0.030667673146614286
 FIM:
   lin:
-    det: 1.5252525339468989e+25
-    inv_cond: 3.9330463349565846e-07
-    min_eig: 0.496481331438123
-    trace: 107.16969872802727
+    det: 1.5241861286137587e+25
+    inv_cond: 3.9314766734075257e-07
+    min_eig: 0.4962830070748594
+    trace: 107.16931694841334

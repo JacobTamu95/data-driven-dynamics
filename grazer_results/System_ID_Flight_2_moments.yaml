@@ -1,19 +1,19 @@
 coefficients:
-  vertical_c_m_drag_z_lin: -0.006505296345071636
-  vertical_c_m_drag_z_quad: 0.28146616723954837
-  vertical_c_m_leaver_lin: 1.6054958961132142e-20
-  vertical_c_m_leaver_quad: 3.763555611250957
-  vertical_c_m_rolling: 0.07001069334763436
+  vertical_c_m_drag_z_lin: -0.006548089188059886
+  vertical_c_m_drag_z_quad: 0.28151127947471705
+  vertical_c_m_leaver_lin: -1.4578314573617762e-20
+  vertical_c_m_leaver_quad: 3.3855049884619386
+  vertical_c_m_rolling: 0.05384224450341679
 metrics:
-  R2: 0.5260140520895331
-  RMSE: 0.019021660463409768
+  R2: 0.45307352915325083
+  RMSE: 0.020432907253753546
 model:
   vertical_:
   - dataframe_name: u0
     description: front right rotor
     position:
-    - 0.1895
     - 0.1575
+    - 0.1895
     - -0.06
     rotor_0: null
     rotor_axis:
@@ -25,8 +25,8 @@ model:
   - dataframe_name: u1
     description: back left rotor
     position:
-    - -0.1895
     - -0.1575
+    - -0.1895
     - -0.06
     rotor_1: null
     rotor_axis:
@@ -38,8 +38,8 @@ model:
   - dataframe_name: u2
     description: front left rotor
     position:
-    - 0.1895
-    - -0.1575
+    - 0.1575
+    - -0.1895
     - -0.06
     rotor_2: null
     rotor_axis:
@@ -51,8 +51,8 @@ model:
   - dataframe_name: u3
     description: back right rotor
     position:
-    - -0.1895
-    - 0.1575
+    - -0.1575
+    - 0.1895
     - -0.06
     rotor_3: null
     rotor_axis:
@@ -63,14 +63,14 @@ model:
     turning_direction: 1
 number of samples: 17274
 Cramer:
-  vertical_c_m_drag_z_lin: 0.5059256281345914
-  vertical_c_m_drag_z_quad: 0.6379453169110443
-  vertical_c_m_leaver_lin: 0.7480688088627984
-  vertical_c_m_leaver_quad: 1.3499552690120167
-  vertical_c_m_rolling: 0.5941655524096067
+  vertical_c_m_drag_z_lin: 0.5144958858020057
+  vertical_c_m_drag_z_quad: 0.6401851087119352
+  vertical_c_m_leaver_lin: 0.8005608450021056
+  vertical_c_m_leaver_quad: 1.3269890859491236
+  vertical_c_m_rolling: 0.5961264472482303
 FIM:
   rot:
-    det: 21588.79028611746
-    inv_cond: 5.610112957810878e-06
-    min_eig: 0.000738129313999848
-    trace: 0.01895496802492869
+    det: 19198.34846105846
+    inv_cond: 5.750711395985646e-06
+    min_eig: 0.0007450012630613211
+    trace: 0.018477100408555637
